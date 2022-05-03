@@ -1,0 +1,3 @@
+name: PlayerConnections
+version: '${project.version}'
+main: com.github.yuko1101.playerconnections.PlayerConnections
