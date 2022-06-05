@@ -4,21 +4,32 @@ import com.github.yuko1101.playerconnections.listeners.PlayerDisconnectListener
 import com.github.yuko1101.playerconnections.listeners.ServerConnectedListener
 import com.github.yuko1101.playerconnections.listeners.ServerKickListener
 import com.github.yuko1101.playerconnections.listeners.ServerSwitchListener
+import com.google.common.io.ByteStreams
 import net.md_5.bungee.api.ProxyServer
 import net.md_5.bungee.api.chat.TextComponent
 import net.md_5.bungee.api.plugin.Plugin
+import net.md_5.bungee.config.Configuration
+import net.md_5.bungee.config.ConfigurationProvider
+import net.md_5.bungee.config.YamlConfiguration
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.*
+
 
 class PlayerConnections : Plugin() {
 
     companion object {
         lateinit var proxyServer: ProxyServer
         val messagePrefix = "§8[§6PlayerConnections§8] §r"
-        val admins = listOf(
-            UUID.fromString("1cc24828-04a3-4ed7-aa7d-cf84c8d3ae88"),
-//            UUID.fromString("c77f7fc1-7a66-453c-b18b-5d2967f5fd06"),
-//            UUID.fromString("2236d750-cac8-4e2b-9658-65c0754cc1dc")
-        )
+        val admins: List<UUID>
+            get() {
+                configuration["admins"]?.let {
+                    return (it as List<*>).map { player -> UUID.fromString(player as String) }
+                } ?: return emptyList()
+            }
+
+        lateinit var configuration: Configuration
         fun broadcastToAdmins(message: TextComponent) {
             for (admin in admins) {
                 proxyServer.getPlayer(admin)?.sendMessage(message)
@@ -38,9 +49,39 @@ class PlayerConnections : Plugin() {
         proxy.pluginManager.registerListener(this, ServerKickListener())
         proxy.pluginManager.registerListener(this, PlayerDisconnectListener())
         proxy.pluginManager.registerListener(this, ServerConnectedListener())
+
+        try {
+            configuration = ConfigurationProvider.getProvider(YamlConfiguration::class.java).load(
+                loadResource(this, "config.yml")
+            )
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
     }
 
     override fun onDisable() {
         // Plugin shutdown logic
+    }
+
+    fun loadResource(plugin: Plugin, resource: String): File {
+        val folder = plugin.dataFolder
+        if (!folder.exists()) folder.mkdir()
+        val resourceFile = File(folder, resource)
+        try {
+            if (!resourceFile.exists()) {
+                resourceFile.createNewFile()
+                plugin.getResourceAsStream(resource).use { `in` ->
+                    FileOutputStream(resourceFile).use { out ->
+                        ByteStreams.copy(
+                            `in`,
+                            out
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return resourceFile
     }
 }
